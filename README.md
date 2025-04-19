@@ -86,4 +86,4 @@ This project is licensed under the MIT License. See (LICENSE)[./LICENSE] for det
 
 Screenshots Sponsored by Urlbox
 
-Urlbox is the most mature and accurate (website screenshot API)[https://urlbox.com/screenshot-api]. Turn any URL or HTML document into pixel-perfect images, PDFs or video. Remove banners, popups and other ugly glitches. You can even extract data and text at the same time.
+Urlbox is the most mature and accurate [website screenshot API](https://urlbox.com/screenshot-api). Turn any URL or HTML document into pixel-perfect images, PDFs or video. Remove banners, popups and other ugly glitches. You can even extract data and text at the same time.
