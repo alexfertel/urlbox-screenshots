@@ -127,16 +127,26 @@ def load_list(path):
 
 def append_line(path, line, lock):
     """
-    Append a single line safely to a file, ensuring thread-safety via a lock.
+    Append a single line safely to a file – but only if that exact line
+    is not already present – ensuring thread‑safety via a lock.
 
     Args:
         path (str): File path to append to.
         line (str): Line content (newline appended automatically).
         lock (threading.Lock): Lock to synchronize writes.
     """
+    line = line.rstrip("\n")
     with lock:
-        with open(path, "a", encoding="utf-8") as f:
-            f.write(line + "\n")
+        # If the file exists, read its current lines into a set
+        existing = set()
+        if os.path.isfile(path):
+            with open(path, "r", encoding="utf-8") as f:
+                existing = {line.strip() for line in f if line.strip()}
+
+        # Only append when the line is new
+        if line not in existing:
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(line + "\n")
 
 
 def save_screenshot_bytes(content, url, out_dir, suffix):
