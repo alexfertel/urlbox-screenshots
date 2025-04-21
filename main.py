@@ -206,13 +206,16 @@ def process_url(url, processed_file, errored_file, out_dir, lock, mobile):
         "url": url,
         "block_ads": "true",
         "hide_cookie_banners": "true",
-        "wait_until": "mostrequestsfinished",
+        "delay": "5000",
         "fail_on_4xx": "true",
         "fail_on_5xx": "true",
+        "quality": "100",
+        "force": "true",
+        "click_accept": "true",
     }
     if mobile:
         suffix = "-mobile"
-        params = {**base, "width": "390", "height": "844", "thumb_width": "200"}
+        params = {**base, "width": "390", "height": "844"}
     else:
         suffix = ""
         params = base
@@ -228,6 +231,7 @@ def process_url(url, processed_file, errored_file, out_dir, lock, mobile):
         if resp.status_code == 400:
             append_line(errored_file, url, lock)
             print(f"[ERROR 400] {url}")
+            print(f"RESPONSE: {resp}")
             return
         if resp.status_code == 429:
             ra = resp.headers.get("Retry-After", "60")
@@ -278,6 +282,14 @@ def main():
         action="store_true",
         help="Capture mobile-sized only (suffix '-mobile')",
     )
+    p.add_argument(
+        "--site",
+        "-u",
+        type=str,
+        default=None,
+        help="Only process a single URL (bypass batch list)",
+    )
+
     args = p.parse_args()
 
     # File & directory settings
@@ -287,47 +299,48 @@ def main():
     output_dir = "screenshots"
     os.makedirs(output_dir, exist_ok=True)
 
-    all_urls = load_urls_from_json(json_file)
-    done = set(load_list(processed_file))
-    errored = set(load_list(errored_file))
-
-    # Filter by mobile flag suffix
-    if args.mobile:
-        done = {u for u in done if u.endswith("-mobile")}
-        errored = {u for u in errored if u.endswith("-mobile")}
-        suffix = "-mobile"
+    # If single site flag is used, skip loading batch lists
+    if args.site:
+        to_process = [args.site]
     else:
-        done = {u for u in done if not u.endswith("-mobile")}
-        errored = {u for u in errored if not u.endswith("-mobile")}
-        suffix = ""
+        all_urls = load_urls_from_json(json_file)
+        done = set(load_list(processed_file))
+        errored = set(load_list(errored_file))
 
-    # Determine URLs to process
-    to_process = [
-        u for u in all_urls if (u + suffix) not in done and (u + suffix) not in errored
-    ]
+        # Filter by mobile flag suffix
+        if args.mobile:
+            done = {u for u in done if u.endswith("-mobile")}
+            errored = {u for u in errored if u.endswith("-mobile")}
+            suffix = "-mobile"
+        else:
+            done = {u for u in done if not u.endswith("-mobile")}
+            errored = {u for u in errored if not u.endswith("-mobile")}
+            suffix = ""
 
-    # Respect blacklist prefixes if present
-    blacklist_file = "./data/blacklist.txt"
-    blacklist_prefixes = load_list(blacklist_file)
-    if blacklist_prefixes:
-        filtered = []
-        for url in to_process:
-            if any(url.startswith(prefix) for prefix in blacklist_prefixes):
-                print(f"[SKIP] {url} (blacklisted)")
-            else:
-                filtered.append(url)
-        to_process = filtered
+        to_process = [
+            u
+            for u in all_urls
+            if (u + suffix) not in done and (u + suffix) not in errored
+        ]
 
-    # Apply dry-run and count limits
-    if args.dry_run:
-        print("⚡ Dry run: will only process the first URL")
-        to_process = to_process[:1]
-    if args.count is not None:
-        to_process = to_process[: args.count]
+        # Respect blacklist prefixes if present
+        blacklist_file = "./data/blacklist.txt"
+        blacklist_prefixes = load_list(blacklist_file)
+        if blacklist_prefixes:
+            filtered = []
+            for url in to_process:
+                if any(url.startswith(prefix) for prefix in blacklist_prefixes):
+                    print(f"[SKIP] {url} (blacklisted)")
+                else:
+                    filtered.append(url)
+            to_process = filtered
 
-    if not to_process:
-        print("No new URLs to process.")
-        return
+        # Apply dry-run and count limits
+        if args.dry_run:
+            print("⚡ Dry run: will only process the first URL")
+            to_process = to_process[:1]
+        if args.count is not None:
+            to_process = to_process[: args.count]
 
     # Launch thread pool
     lock = threading.Lock()
